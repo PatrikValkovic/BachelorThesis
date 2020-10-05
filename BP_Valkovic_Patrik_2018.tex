@@ -1,0 +1,77 @@
+\documentclass[thesis=B,czech]{FITthesis}[2012/06/26]
+
+\usepackage[utf8]{inputenc} % LaTeX source encoded as UTF-8
+\usepackage[gray]{xcolor}
+\usepackage{graphicx} %graphics files inclusion
+\usepackage{dirtree} %directory tree visualisation
+\usepackage[acronym,nonumberlist,toc,numberedsection=autolabel,automake]{glossaries}
+\usepackage{amsthm}
+\usepackage{amsmath}
+\usepackage{enumitem}
+\usepackage{caption}
+\usepackage{minted}
+\usepackage{listings}
+\usepackage{tikz}
+\usepackage{linegoal}
+\usepackage[style=german]{csquotes}
+\usepackage{chngcntr}
+\RequirePackage{pdfpages}
+
+\renewcommand{\listingscaption}{Kód}
+\renewcommand{\listoflistingscaption}{Seznam zdrojových kódů}
+\counterwithin{listing}{chapter}
+
+\newcommand{\tg}{\mathop{\mathrm{tg}}} %cesky tangens
+\newcommand{\cotg}{\mathop{\mathrm{cotg}}} %cesky cotangens
+\newcommand{\MathSymb}[1]{\textit{#1}}
+\newcommand{\Iter}[1]{{#1}^{\ast}}
+\newcommand{\TermNonterm}{(\MathSymb{T}\cup\MathSymb{N})}
+\newcommand{\TermNontermIter}{\Iter{\TermNonterm}}
+\newcommand{\GrammarDef}{$G=(N, T, S, R)$}
+\newcommand{\TranslateGrammarDef}{$PG=(N, T, D, S, R)$}
+\newcommand{\AttributTranslateGrammarDef}{$APG=(N, T, D, SR, S, A, V)$}
+\newcommand{\Grammar}[4]{
+	$G=(\left\{#2\right\},\allowbreak \left\{#1\right\},\allowbreak #3,\allowbreak\left\{#4\right\})$ 
+}
+\newcommand{\TranslateGrammarNoRuleSet}[5]{
+	$G=(\left\{#2\right\},\allowbreak \left\{#1\right\},\allowbreak \left\{#3\right\}, \allowbreak #4,#5)$ 
+}
+\newcommand{\TranslateGrammar}[5]{
+	\TranslateGrammarNoRuleSet{#1}{#2}{#3}{#4}{\left\{#5\right\}}
+}
+\newcommand{\Rule}[2]{{#1} \allowbreak\rightarrow\allowbreak {#2}}
+\newcommand{\MRule}[2]{$\Rule{#1}{#2}$}
+\newcommand{\LLk}{\MathSymb{LL(k)}\space}
+\newcommand{\LRk}{\MathSymb{LR(k)}\space}
+\newcommand{\Eps}{$\varepsilon$}
+\newcommand{\EpsS}{\Eps\space}
+\newcommand{\Term}[1]{\MathSymb{#1}}
+\newcommand{\Nonterm}[1]{\MathSymb{#1}}
+\newcommand{\circled}[1]{\raisebox{.5pt}{\textcircled{\raisebox{-.26pt} {#1}}}}
+\newcommand{\hash}{\scalebox{0.8}{\raisebox{0.4ex}{\#}}}
+\newcommand{\Plus}{\scalebox{0.8}{\raisebox{0.4ex}{+}}}
+\newcommand{\Code}[1]{\mintinline{python}{#1}}
+
+
+\input{glossaries}
+\input{preamble}
+
+\begin{document}
+
+\include{introduction}
+	
+\include{theory}
+
+\include{operations}
+	
+\include{analyzeAndDesign}
+
+\include{implementation}
+
+\include{demonstration}
+
+\include{conclusion}
+
+\include{contents}
+
+\end{document}

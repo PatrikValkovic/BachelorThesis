@@ -1,0 +1,260 @@
+\chapter{Demonstrace knihovny na příkladech}
+
+	V~následující kapitole je knihovna použita pro parsování aritmetických výrazů, regulárních výrazů a~lambda kalkulu. Základ aplikace a~postupy zůstávají stále podobné prvnímu příkladu. Z~tohoto důvodu budou pro jednotlivé příklady ukázány pouze klíčové části programu. Kompletní zdrojové kódy jsou na přiloženém mediu.
+	
+	\section{Parser aritmetických výrazů}
+	
+		Nyní již máme všechny prostředky potřebné pro tvorbu parseru. V~této sekci budeme demonstrovat fungování programu na parseru aritmetických výrazů, tedy výrazů podporujících operace $+,-,*,/$ a použití závorek.
+		
+		Budeme vycházet z~gramatiky \GrammarDef\space kde
+		
+		\begin{tabular}{rl}
+			$N=$ & $\left\{ Number, MultipleDivide, PlusMinus \right\}$\\
+			$T=$ & $\left\{0,1,2,3,4,5,6,7,8,9,+,-,*,/,\left(,\right)\right\}$\\
+			$S=$ & $PlusMinus$\\
+			$R=$ & $\left\{ \Rule{Number}{0},\Rule{Number}{1},\cdots,\Rule{Number}{9}, \right.$ \\
+			& $\Rule{Number}{Number 0},\cdots,\Rule{Number}{Number 9},$ \\
+			& $\Rule{PlusMinus}{PlusMinus + MultipleDivide},$ \\
+			& $\Rule{PlusMinus}{PlusMinus - MultipleDivide},$ \\
+			& $\Rule{PlusMinus}{MultipleDivide},$ \\
+			& $\Rule{MultipleDivide}{MultipleDivide * Number},$ \\
+			& $\Rule{MultipleDivide}{MultipleDivide / Number},$ \\
+			& $\Rule{MultipleDivide}{Number},$ \\
+			& $\Rule{Number}{\left(\right. PlusMinus \left.\right)}$ \\
+		\end{tabular}
+		
+		Nejdříve nadefinujeme neterminál, který bude mít jeden atribut -- vytvoříme tak atributovanou gramatiku (kód \ref{alg:calcAttributedNonterminal}). Z~toho neterminálu budou dědit zbývající neterminály.
+		
+		\begin{listing}
+			\begin{minted}[tabsize=3]{python}
+class Common(Nonterminal):
+	def __init__(self):
+		self._attribute = None
+	
+	@property
+	def attribute(self):
+		if self._attribute is None:
+			self.to_rule.compute()
+		return self._attribute
+	
+	@attribute.setter
+	def attribute(self, value):
+		self._attribute = value
+			\end{minted}
+			\caption{Definice atributovaného neterminálu}
+			\label{alg:calcAttributedNonterminal}
+		\end{listing}
+		
+		Jak je v~kódu vidět, atribut se počítá až ve chvíli, kdy je o~něj požádáno (tzv. lazy evaluzation). Přitom se zavolá metoda \Code{compute} na pravidlu, které neterminál přepisuje. V~tomto případě jsou totiž všechny atributy syntetizované. Nyní nadefinujeme pravidla a jejich sémantiku. Vzhledem k~množství pravidel je nebudeme vypisovat všechny, ale jako příklad uvedeme pouze $\Rule{MultipleDivide}{MultipleDivide / Number}$.
+		
+		\begin{listing}
+			\begin{minted}[breaklines,tabsize=3]{python}
+class DivideApplied(Rule):
+	fromSymbol = MultipleDivide
+	right = [MultipleDivide, DivideOperator, Number]
+	
+	def compute(self):
+		parent = self.from_symbols[0]
+		left_child = self.to_symbols[0]
+		right_child = self.to_symbols[2]
+		result = left_child.attribute / right_child.attribute
+		parent.attribute = result
+			\end{minted}
+			\caption{Pravidlo $\Rule{MultipleDivide}{MultipleDivide / Number}$}
+			\label{alg:calcMultipleDivide}
+		\end{listing}
+		
+		Na základě terminálů, neterminálů a~pravidel poté můžeme nadefinovat gramatiku (algoritmus \ref{alg:calcGrammarDefinition}).
+		
+		\begin{listing}
+			\begin{minted}[breaklines,tabsize=3]{python}
+g = Grammar(terminals=[0, 1, 2, 3, 4, 5, 6, 7, 8, 9,PlusOperator, MinusOperator, MultipleOperator,DivideOperator,LeftBracket, RightBracket],
+	nonterminals=[Number, MultipleDivide, PlusMinus],
+	rules=[NumberDirect, NumberCompute,DivideApplied, MultipleApplied, NoDivideMultiple, MinusApplied, PlusApplied, NoPlusMinus, BracketsApplied],
+	start_symbol=PlusMinus)
+			\end{minted}
+			\caption{Definice aritmetické gramatiky}
+			\label{alg:calcGrammarDefinition}
+		\end{listing}
+		
+		Nyní použijeme gramatiku ke zpracování výrazu $10 + ( 5 * 2 + 4 ) / 2 * 4$. V~rámci tohoto příkladu není vytvořen lexikální analyzátor, proto nebude vstupní slovo parsováno z~příkazové řádky, ale bude zapsáno přímo v~programu. Před samotným parsování ještě musíme provést transformace gramatiky do \gls{gloss:CNF} a~po parsování provést zpětnou transformaci \gls{gloss:AST} (algoritmus \ref{alg:calcParsing}).
+		
+		\begin{listing}
+			\begin{minted}[breaklines,tabsize=3]{python}
+ContextFree.remove_useless_symbols(g, transform_grammar=True)
+ContextFree.remove_rules_with_epsilon(g, transform_grammar=True)
+ContextFree.remove_unit_rules(g, transform_grammar=True)
+ContextFree.remove_useless_symbols(g, transform_grammar=True)
+ContextFree.transform_to_chomsky_normal_form(g, transform_grammar=True)
+
+parsed = cyk(g, [1, 0, PlusOperator, LeftBracket, 5, MultipleOperator, 2, PlusOperator, 4, RightBracket, DivideOperator, 2, MultipleOperator, 4])
+
+parsed = InverseContextFree.transform_from_chomsky_normal_form(parsed)
+parsed = InverseContextFree.unit_rules_restore(parsed)
+parsed = InverseContextFree.epsilon_rules_restore(parsed)
+parsed = InverseCommon.splitted_rules(parsed)
+print(parsed.attribute)
+			\end{minted}
+			\caption{Proces parsování aritmetických výrazů}
+			\label{alg:calcParsing}
+		\end{listing}
+	
+
+	\section{Parser regulárních výrazů}
+		
+		Obecný parser regulárních výrazů má široké uplatnění. Asi nejevidentnější je převod regulárního výrazu do stavového automatu. Stavovým automatem lze poté testovat, zda vstupní slovo vyhovuje nebo nevyhovuje regulárnímu výrazu.
+		
+		V~tomto příkladě budeme nicméně demonstrovat přesně opačné použití -- vypsání všech slov (s~jistými omezujícími podmínkami), které zadanému regulárnímu výrazu vyhovují. Takový program lze využít například pro prolamování hesel, která mají předem daný formát.
+		
+		Při formátu regulárních výrazů vycházíme ze zdroje \cite{Aho:1986:CPT:6448}. Program je založen na gramatice \GrammarDef.
+		
+		\begin{tabular}{rl}
+			$N=$ & $\left\{ Symb, Concat, Iterate, Or\right\}$\\
+			$T=$ & $\left\{ a,b,c,\cdots,y,z,+,*,\left(\right.,\left.\right) \right\}$\\
+			$S=$ & $Or$\\
+			$R=$ & $\left\{\right.  \Rule{Or}{Or + Or}, \Rule{Or}{Concat}, $ \\
+			& $\Rule{Concat}{Iterate Concat}, \Rule{Concat}{Iterate},$ \\
+			& $\Rule{Iterate}{{Symb}^{\ast}}, \Rule{Iterate}{Symb}$ \\
+			& $\Rule{Symb}{\left(\right. Or \left.\right)},$ \\
+			& $\Rule{Symb}{a}, \Rule{Symb}{b}, \cdots, \Rule{Symb}{z} \left.\right\}$ \\
+		\end{tabular}
+		
+		Na rozdíl od předchozího příkladu nyní ukážeme přístup, kdy nebude sémantika aplikace uložena v~pravidlech, ale přímo v~neterminálech. Každý z~neterminálů bude mít metodu \Code{get}, která vrátí seznam slov, které danému regulárnímu podvýrazu vyhovují. Například pro neterminál \MathSymb{Symb} který by měl pouze pravidlo $\Rule{Symb}{a}$ by byla metoda implementována pouze jako navrácení hodnoty terminálu \Code{return [self.to_rule.to_symbols[0].s]}.
+		Pro představu ukážeme metodu \Code{get} neterminálu \MathSymb{Concat} (algoritmus \ref{alg:concatNonterminal}).
+		
+		\begin{listing}
+			\begin{minted}[tabsize=3]{python}
+class Concat(Nonterminal):
+	def get(self, i, f):
+		if len(self.to_rule.to_symbols) == 1:
+			return self.to_rule.to_symbols[0].get(i, f)
+		new = []
+		left = self.to_rule.to_symbols[0].get(i, f)
+		right = self.to_rule.to_symbols[1].get(i, f)
+		for l in left:
+			for r in right:
+				new.append(l + r)
+		return new
+			\end{minted}
+			\caption{Implementace metody \Code{get} neterminálu \MathSymb{Concat}}
+			\label{alg:concatNonterminal}
+		\end{listing}
+		
+		Parametry \Code{i} a \Code{f} udávají maximální počet iterací, resp. znaky vyplnění na místě, kde má iterace skončit. Tyto parametry jsou relevantní pouze pro neterminál \MathSymb{Iterate}. Jsou využity k~omezení délky slova, například pro regulární výraz \enquote{ab*(def+xy*z)} se jako nejdelší slovo vygeneruje \enquote{abb...bbxyy...yyz}, je--li $i=3$ a $f=\cdots$.
+		
+		Běh aplikace je ukázán na obrázku \ref{pic:runRegexInverse}.
+		
+		\begin{figure}
+			\begin{minted}[tabsize=3]{bash}
+$ python3 run.py -i 2 -f "___" "(a+b)*c"
+c
+ac
+aac
+a___ac
+c
+bc
+bbc
+b___bc
+			\end{minted}
+			\caption{Ukázka běhu parseru regulárních výrazů}
+			\label{pic:runRegexInverse}
+		\end{figure}
+	
+	\section{Interpret lambda kalkulu}
+	
+		V~tomto příkladě budeme tvořit interpret lambda kalkulu. Při definici lambda kalkulu vycházíme ze zdroje \cite{hindley1986introduction}. Na rozdíl od předchozích příkladů, které se zaměřovaly čistě na parsování, musíme u~interpretu lambda kalkulu řešit implementaci interpretu. 
+		
+		Jedním z~problémů je zjednodušení vstupního textu. Ačkoliv by bylo možné parsovat vstup v~jeho textové podobě, velmi by se tím komplikovala gramatika. Pro příklad uveďme bílé znaky, které nemají ze sémantického hlediska žádný význam. Také identifikátory mohou nabývat téměř nekonečného počtu hodnot, ale tyto hodnoty jsou z~hlediska parsovacího procesu nepodstatné. V~aplikaci proto před samotným parsováním použijeme lexikální analyzátor, který převede vstupní text do série tokenů, které teprve budou zpracovány samotným parserem. Budeme tím demonstrovat použití lexikálního analyzátoru ve spojení s~vytvořenou knihovnou
+		
+		Dalším z~problémů je samotná interpretace. Aplikace musí nejenom naparsovat vstup, ale i~správně provádět operace lambda kalkulu (konkrétně $\alpha$ redukci, $\beta$ redukci a další). Jelikož zmíněné operace nijak nesouvisejí s~procesem parsování ani s~touto prací, bude použita existující knihovna.
+		
+		Samotná aplikace bude rozdělena do několika částí.
+		\begin{itemize}
+			\item Syntaktický analyzátor -- jedná se o~podprogram převádějící vstupní text na sérii tokenů. Gramatika je nadefinována nad těmito tokeny a~nikoliv nad samotným vstupním textem.
+			\item Parser -- hlavní část programu z~hlediska této práce. Parser převede vstupní sérii tokenů na \gls{gloss:AST}.
+			\item Reprezentace -- \gls{gloss:AST} je převeden do struktur vyžadovaných knihovnou pro interpretaci lambda kalkulu.
+			\item Interpretace -- reprezentace je intepretována a~výstup je zobrazen uživateli.
+		\end{itemize}
+	
+		Sémantická analýza je vyřešena knihovnou \MathSymb{PLY} (Python Lex--Yacc) \cite{PLY}. Jak název napovídá, knihovna je velmi silně ovlivněna nástroji \MathSymb{Lex} a \MathSymb{Yacc}. Jejím účelem je spojení těchto nástrojů a~jejich implementace v~jazyce Python. Z~knihovny byl použit pouze modul \Code{lex}, tedy modul zprostředkovávající lexikální analýzu. Syntaxe je velmi podobná syntaxi klasického nástroje \MathSymb{Lex}, pouze s~tím rozdílem, že je celý proces definován v~nativním Pythonu. Pro ukázku uveďme vytvoření tokenu představující proměnnou (algoritmus \ref{alg:lexVariable}), která může nabývat libovolné kombinace velkých písmen, malých písmen a~jednoduchých uvozovek.
+		
+		\begin{listing}
+			\begin{minted}[tabsize=3]{python}
+def t_VARIABLE(t):
+	r'[a-zA-Z\']+'
+	t.value = Variable(t.value)
+	return t
+			\end{minted}
+			\caption{Generování tokenu symbolizující proměnnou}
+			\label{alg:lexVariable}
+		\end{listing}
+	
+		Parsování probíhá podobně, jako je tomu v~předchozích případech, až na rozdíl identifikace terminálů. Jak bylo řečeno, knihovna terminály porovnává podle jejich hash hodnoty. Budou-li dva objekty mít stejnou hash, budou interpretovány jako ekvivalentní. V~našem případě bude hash instance vracet hash třídy -- díky tomu lze instanci s~libovolnou hodnotou interpretovat jako terminál určité třídy. Ukážeme to na příkladu terminálu reprezentujícím číslo (algoritmus \ref{alg:termNumber}). Ačkoliv bude na vstupu několika terminálů, každý s~jiným atributem \Code{value}, parsovací algoritmus je bude považovat za ekvivalentní a~použije adekvátní pravidla.
+	
+		\begin{listing}
+			\begin{minted}[tabsize=3]{python}
+class Number:
+	def __init__(self, value):
+		self.value = value
+	def __hash__(self):
+		return hash(Number)
+			\end{minted}
+			\caption{Terminál reprezentující číslo}
+			\label{alg:termNumber}
+		\end{listing}
+	
+		Samotná gramatika \GrammarDef\space popisující lambda kalkul je k~prohlédnutí níže.
+	
+		\begin{tabular}[ht!]{rl}
+			$N=$ & $\left\{\right. Nobracketexpression, Expression, Expressionbody,$ \\
+				 & $Lambda, Parameters \left.\right\}$ \\
+			$T=$ & $\left\{\right. Lambdakeyword, Dot, Leftbracket, Rightbracket,$ \\
+			     & $Number, Variable, Parameter \left.\right\}$ \\	
+			$S=$ & $Nobracketexpression$ \\
+			$R=$ & $\left\{\right.  \Rule{Nobracketexpression}{Expressionbody},$ \\
+			& $\Rule{Expressionbody}{Variable Expressionbody},$ \\
+			& $\Rule{Expressionbody}{Variable},$ \\
+			& $\Rule{Expressionbody}{Number Expressionbody},$ \\
+			& $\Rule{Expressionbody}{Number},$ \\
+			& $\Rule{Expressionbody}{Lambda Expressionbody},$ \\
+			& $\Rule{Expressionbody}{Lambda},$ \\
+			& $\Rule{Expressionbody}{Expression Expressionbody},$ \\
+			& $\Rule{Expressionbody}{Expression},$ \\
+			& $\Rule{Expression}{Leftbracket Nobracketexpression Rightbracket}$\\
+			& $\Rule{Lambda}{Leftbracket Lambdakeyword Parameters}, $ \\
+			& $Dot Nobracketexpression Rightbracket,$ \\
+			& $\Rule{Parameters}{\varepsilon},$ \\
+			& $\Rule{Parameters}{Parameter Parameters},$ \\
+			& $\Rule{Parameters}{Parameter}  \left.\right\}$ \\
+		\end{tabular}
+	
+		Sémantická část gramatiky je tentokrát smíšená -- některá sémantická pravidla jsou definována na pravidlech, některá na neterminálech. Protože se jedná pouze o~demonstraci knihovny, nebude implementace detailněji popsána. V~případě zájmu jsou zdrojové kódy na přiloženém mediu.
+		
+		Pro samotnou reprezentaci a~interpretaci knihovny byla zvolena knihovna \MathSymb{lambda{\_}interpreter} \cite{lambdaInterpreter}. Tato knihovna vznikla jako semestrální práce v~předmětu \enquote{Programovací paradigmata} (BI--PPA) studentkou Simonou Kurňavovou na \gls{gloss:FIT} \gls{gloss:CVUT}. 
+		Tato knihovna definuje vlastní struktury pro definici výrazů v~lambda kalkulu. Sémantická část gramatiky spočívá právě v~převodu \gls{gloss:AST} do struktur vyžadovaných knihovnou \MathSymb{lambda{\_}interpreter}.
+		
+		Ná závěr je na reprezentaci opakovaně aplikována $\beta$ redukce a~mezivýsledky jsou zobrazeny uživateli. Běh programu lze vidět na obrázku \ref{pic:lambdaInterpreterRun}.
+		
+		\begin{figure}
+			\begin{minted}{text}
+>>>((lambda x. ((lambda y. (y x)) x y)) z)
+((lambda x. ((lambda y. (y x)) x y)) z)
+((lambda y. (y z)) z y)
+((z z) y)
+>>>((lambda var y. ((lambda z. ((lambda f. (z f)) z)) var)) 3 7)
+((lambda var y. ((lambda z. ((lambda f. (z f)) z)) var)) 3 7)
+((lambda y. ((lambda z. ((lambda f. (z f)) z)) 3)) 7)
+((lambda z. ((lambda f. (z f)) z)) 3)
+((lambda f. (3 f)) 3)
+(3 3)
+>>>(lambda x (y). x y)
+Invalid input
+>>>
+			\end{minted}
+			\caption{Ukázka běhu interpretu lambda kalkulu}
+			\label{pic:lambdaInterpreterRun}
+		\end{figure}
+		
+		
+	
+	

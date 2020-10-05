@@ -1,0 +1,30 @@
+\department{Katedra softwarového inženýrství}
+\title{Návrh a implementace knihovny pro parsování bezkontextových gramatik}
+\authorGN{Patrik}
+\authorFN{Valkovič}
+\authorWithDegrees{Patrik Valkovič}
+\supervisor{Ing. Jan Trávníček}
+\placeForDeclarationOfAuthenticity{V~Praze}
+\declarationOfAuthenticityOption{4}
+\keywordsCS{gramatiky, parsování, Chomského normální forma, Cocke-Younger-Kasami algoritmus, Python, lambda kalkulus}
+\keywordsEN{grammars, parsing, Cocke-Younger-Kasami algorithm, Chomsky normal form, Python, lambda calculus}
+
+\acknowledgements{
+	Chtěl bych poděkovat své rodině, přítelkyni a přátelům za jejich nejen psychickou podporu během studia i~během psaní této práce.\par
+	\vspace{1em}
+	Také bych chtěl poděkovat mému vedoucímu práce Ing. Janu Trávníčkovi za vedení, konzultace, cenné rady a~připomínky, které mi během psaní této práce poskytl. Nebýt jeho aktivity v předchozích semestrech, tato práce by nevznikla. Dále bych chtěl poděkovat Ing. Miroslavu Hrončokovi za konzultace, code review a pomoc s~technickými záležitostmi.\par
+	\vspace{1em}
+	Nakonec bych chtěl poděkovat Ing. Elišce Šestákové a~doc. Ing. Janu Janouškovi, Ph.D. za jejich přístup ve~výuce předmětů, ze kterých tato práce vychází.
+}
+\abstractCS{
+	Cílem práce je vytvořit knihovnu, která striktně oddělí syntaktickou a~sémantickou část zpracování strukturovaného textu při zachování snadného použití a~jednoduchosti. Práce se zaměřuje na parsování bezkontextových gramatik v~jazyce Python. Pro implementaci byl zvolen Cocke-Younger-Kasami algoritmus z~důvodu největší robustnosti v~oblasti bezkontextových gramatik. Pro zjednodušení práce knihovna implementuje transformace gramatik do Chomského normální formy i~jejich opačnou verzi nad parsovacím stromem. Tím knihovna poskytuje univerzální nástroj pro parsování.
+	
+	Knihovna byla úspěšně implementovaná a~publikována. Funkčnost knihovny je demonstrována na lambda kalkulu, jenž je parsován a~interpretován.
+}
+\abstractEN{
+	The goal of this thesis is to develop library that strictly separate syntactic and semantic part of the parsing proccess. Library is suppose to be simple and easy to use. Library parsing proccess uses context-free  grammars and Cocke-Younger-Kasami algorithm, because of it's versatility. Library is developed in Python programming language.
+	
+	To simplify parsing proccess, the library implements transformations into Chomsky normal form. Moreover, it also implements backward transformations of the parsed tree. For that particular reasons, library provides complex parsing tool.
+	
+	The library was successfully implemented and published. The functionality of the library is demonstrated on lambda calculus interpreter, which functionality is to parse and interpret lambda calculus.
+}

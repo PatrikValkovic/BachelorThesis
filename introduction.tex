@@ -1,0 +1,19 @@
+\begin{introduction}
+	Během studia jsem opakovaně narážel na problém zpracování strukturovaného textu, ať už to byla validace uživatelského vstupu nebo práce se strukturovanými formáty jako jsou regulární výrazy, \gls{gloss:XML} nebo \gls{gloss:JSON}. Bohužel jsem nenašel žádný univerzální nástroj, který by byl snadno rozšířitelný a dovolil definovat vlastní pravidla pro parsovaný text.
+	
+	Zpracování strukturovaného textu (tzv. parsování) je jednou z~hlavních činností, které dnes po počítačích požadujeme \cite{MartinKocickaLRParsing}.
+	Nejedná se pouze o zpracování dokumentů, jako již zmiňovaný \gls{gloss:XML} nebo \gls{gloss:JSON}, ale také ověření uživatelských vstupů, práce s regulárními výrazy a v~neposlední řadě také zpracování programovacích jazyků. Ačkoliv existuje řada nástrojů pro zpracování strukturovaného textu (například \gls{gloss:GCC}), jsou zpravidla určeny pro specifické činnosti (kompilace programovacích jazyků v případě \gls{gloss:GCC}). Jejich rozšíření v mnoha případech není vůbec možné (například \gls{gloss:MSVC} kompiler \cite{MSVCIntermediate}) nebo je obtížné.
+	
+	V~rámci této práce bude navržena knihovna, která by oddělila syntaktickou analýzu od sémantiky a~tím dovolila snadnou rozšířitelnost, a~to i~v~případě existujících programů či knihoven, z~této knihovny vycházejících. Knihovna bude tvořit univerzální platformu, která je nezávislá na použité metodě parsování a~tím dosahuje maximální flexibility.
+	
+	Pro parsování strukturovaného textu existuje několik známých algoritmů, které by měly být podporovány. Tato práce se zabývá primárně Cocke-Younger-Kasami algoritmem (dále jen \gls{gloss:CYK}) z~důvodu jeho obecnosti. Pro aplikování \gls{gloss:CYK} algoritmu musí být data ve správném formátu, toho lze jednoznačně a~deterministicky docílit a~popis transformací je taktéž součástí této práce.
+	
+	Práce je rozdělena do tří částí. První z~nich popisuje teoretické poznatky, definuje operace požadované knihovnou a~jejich vlastnosti. Jedná se o~první dvě kapitoly. Druhá část (3. a~4. kapitola) je implementační a~zabývá se návrhem, implementací a~testováním řešení. V~poslední části resp. kapitole jsou předkládány složitější příklady a~diskutovány možnosti dalšího rozšíření knihovny.
+\end{introduction}
+
+\chapter*{Cíle práce}
+	\addcontentsline{toc}{chapter}{Cíle práce}
+	
+	Cílem práce je implementovat knihovnu poskytující univerzální platformu pro proces parsování. Dále je cílem práce nastudovat formální gramatiky a~navrhnout jejich vhodnou reprezentaci s~ohledem na jejich použití při parsovacím procesu. Při návrhu musí být brány v~úvahu běžné metody parsování z~důvodu možných budoucích rozšíření knihovny. Významnou částí práce je nastudování, implementace a~otestování \gls{gloss:CYK} algoritmu současně s~převodem gramatiky na Chomského normální formy. Zvláštní pozornost je věnována tvorbě abstraktního syntaktického stromu u~\gls{gloss:CYK} algoritmu a~jeho zpětným transformacím z~Chomského normální formy. V~neposlední řadě je důležitým bodem práce demonstrovat fungování knihovny na složitějších příkladech, jako jsou jednoduché programovací jazyky.
+
+	

@@ -1,0 +1,148 @@
+\chapter{Realizace}
+
+	Následující kapitola se zabývá přípravou projektu, implementací, testováním a~nakonec publikováním knihovny. 
+	Naší snahou v~této části práce je popsat fungování knihovny a~proces jejího vývoje. Algoritmy používané knihovnou jsou buď velmi jednoduché -- a tedy postačí jejich textový popis, nebo jsou již z~velké části popsány pseudokódem v~dřívějších kapitolách. Z~tohoto důvodu se budeme snažit minimalizovat ukázky zdrojového kódu za účelem přehlednosti a~konzistence práce. Kompletní zdrojový kód lze nalézt na přiloženém médiu či online na portálu GitHub \cite{GrammpyProject}.
+
+	\section{Příprava prostředí}
+		
+		Vývojové prostředí a~metodika vývoje přímo ovlivňují, jakým způsobem software vzniká a~jakým způsobem mezi sebou vývojáři sdílejí změny.
+		
+		Prostředí jazyka Python bylo zvoleno poslední stabilní vydání, tedy verze \MathSymb{3.6.4}. Pod tímto prostředím je knihovna vyvíjena a~testována během vývoje, nicméně v~rámci \gls{gloss:CI} je knihovna otestována pod dalšími prostředími jazyka Python, a~to až do verze \MathSymb{3.3}, protože se jedná o~poslední podporovanou verzi v~Linuxové distribuci Fedora \cite{FedoraMultiplePythons}.
+	
+		Během vývoje knihovny bude použit nástroj \MathSymb{Git}. Jedná se o~nástroj široce používaný \cite{VersionControlSystem2016}
+		a~většině vývojářů známý, který zároveň vyřeší požadavek \ref{req:codeVersioning}. V~souladu s~požadavky \ref{req:sourcesOnline} a~\ref{req:docOnline} budou zdrojové kódy umístěny veřejně na portálu \hyperlink{https://github.com/}{GitHub} \cite{GrammpyProject}, který je většině vývojářů taktéž známý.
+		
+		K~dodržení požadavku \ref{req:CI} byl zvolen nástroj \hyperlink{https://travis-ci.org/}{TraviCI} \cite{Travis}. Ten je pro otevřený software (open-source), kterým naše knihovna je, zcela zdarma. Konfigurace probíhá pouze jediným souborem \enquote{\MathSymb{.travis.yml}}. Tento nástroj spustí všechny testy nad knihovnou v~námi definovaných prostředích a~v~případě chyby tuto skutečnost nahlásí prostřednictvím e-mailu. TravisCI je taktéž integrován s~GitHubem, takže při libovolné změně zdrojového kódu jsou všechny testy spuštěny automaticky a~jejich výstup vložen na GitHub. čímž je splněn požadavek \ref{req:constistence}.
+		
+		V~případě verzování knihovny bylo zvoleno sekvenční verzování se třemi pozicemi \cite{semver}.
+		\begin{itemize}
+			\item Major -- \enquote{\textit{MAJOR version when you make incompatible API changes}} \cite{semver} -- major verse se mění při tzv. breaking changes, tedy při změnách, kvůli nimž nelze starý software, fungující se starou verzí knihovny, použít s~její verzí novou. Obecně je snahou měnit major verzi co nejméně, pokud možno vůbec. 
+			\item Minor -- \enquote{\textit{MINOR version when you add functionality in a backwards-compatible manner}} \cite{semver} -- minor verze se mění se při vylepšení softwaru. Minor verze přinášejí uživatelům novou funkcionalitu, ale je dodrženo stejné rozhraní. Starý software tak může fungovat i~s~novější verzí knihov\-ny, než pro který byl napsán.
+			\item Patch -- patche jsou změny knihovny za účelem opravy chyb. Na rozdíl od minor verze nepřináší novou funkcionalitu (eventuálně pouze minimální), ale spíše se soustřeďuje na opravu chyb resp. interní vylepšení knihovny.
+		\end{itemize}
+		Verze jsou psány za sebe a~odděleny tečkou -- \MathSymb{<major>.<minor>.<patch>} (například \MathSymb{1.2.0}).
+		
+		Dříve, než se pustíme do samotné implementace, ještě musíme zvolit název knihovny resp. jednotlivých modulů. Název je důležitý pro konečné publikování aplikace do online repositáře, ze kterého si knihovnu mohou stáhnout uživatelé. Pro základní modul reprezentující gramatiky byl zvolen název \MathSymb{grammpy}, pro jejich transformace modul \MathSymb{grammpy-transforms}. Modul obsahující jednotlivé parsery bude pojmenován \MathSymb{pyparsers}. Zdrojové kódy budou umístěny online a~to na portálu GitHub \cite{GrammpyProject}.
+		
+	\section{Reprezentace gramatik}
+	
+		Podoba modulu pro reprezentaci gramatik byla z~velké části již dána návrhem knihovny. Základem modulu je třída \Code{Grammar}, která gramatiku uchovává v~interních strukturách a~poskytuje ke gramatice rozhraní.
+		
+		Třída \Code{Grammar} byla implementována s~ohledem na zvolenou architekturu \MathSymb{Pipes and Filters}. Logika je rozdělena do několika vrstev, kde každá vrstva je reprezentována třídou.
+		
+		\begin{itemize}
+			\item \Code{RawGrammar} -- poskytuje základní rozhraní pro manipulaci s~gramatikou. Poskytuje \gls{gloss:CRUD} operace pro terminály, neterminály, pravidla a~počáteční symbol. Provádí taktéž validaci parametrů, tedy že pravidlo dědí ze třídy \Code{Rule} a neterminál ze třídy \Code{Nonterminal}.
+			\item \Code{StringGrammar} -- zpracovává vstupní parametry v~případě, kdy se jedná o~text. Text je v~Pythonu iterovatelný, tedy jde s~ním zacházet jako s~polem. To je nežádoucí, protože u pole očekáváme jeho projití a~přidání všech prvků v~poli, zatímco text považujeme za dále nedělitelný. Třída \Code{StringGrammar} se stará o~to, že text nebude brán jako pole.
+			\item \Code{MultipleRulesGrammar} -- z~návrhu knihovny lze vytvořit třídu reprezentující několik pravidel současně. To je komplikace při vnitřní reprezentaci, protože následně můžeme chtít odstranit pouze jedno z~pravidel. Třída \Code{MultipleRulesGrammar} tyto pravidla rozdělí do samostatných tříd, které následně vloží do gramatiky. Díky této logice lze s~pravidly manipulovat jednotlivě.
+			\item \Code{PrettyApiGrammar} -- rozšiřuje rozhraní knihovny o~některé metody, které jsou založeny nad standardním rozhraním. Jedná se především o~zkrácení zápisu a~eventuálně standardizaci parametrů.
+			\item \Code{RulesRemovingGrammar} -- je-li z~gramatiky odstraněn neterminál nebo terminál, očekávali bychom také odstranění všech pravidel, které tento terminál resp. neterminál obsahují. Třída \Code{RulesRemovingGrammar} obstarává tuto logiku.
+			\item \Code{CopyableGrammar} -- tato třída obstarává implementaci kopírování, tedy hluboké kopie (deep copy) a mělké kopie (shallow copy).
+			\item \Code{Grammar} -- jedná se o~zastřešující třídu, která skrývá vnitřní implementaci. Budou--li výše zmíněné třídy gramatiky změněny nebo přepsány, jejich skrytím za třídu \Code{Grammar} je zajištěna kompatibilita se~starými aplikacemi (za předpokladu, že se nezmění rozhraní).
+		\end{itemize}
+	
+		Stejný přístup byl zvolen i~pro třídu \Code{Rule} reprezentující pravidlo.
+		
+		\begin{itemize}
+			\item \Code{BaseRule} -- tato třída obsahuje základ pravidel. Má nadefinované statické vlastnosti a~logiku s~dopočítáváním zbylých vlastností (viz kapitola \ref{sec:designOfLibrary}). Třída dále obsahuje definici hashovací funkce a porovnávacího operátoru.
+			\item \Code{ValidationRule} -- třída \Code{ValidationRule} obsahuje logiku související s~validací pravidel. Tato logika se volá ve chvíli, kdy je pravidlo vkládáno do gramatiky. Kontroluje se tak, že jsou pravidla nadefinována syntakticky správně, ale také že všechny symboly použité v~pravidlu jsou v~gramatice k~dispozici.
+			\item \Code{InstantiableRule} -- jak bylo řečeno v~sekci návrhu, pravidla se budou instanciovat a~budou sloužit jako entita v~\gls{gloss:AST}. Tato třída definuje potřebné atributy a~metody potřebné k~tomuto účelu.
+			\item \Code{Rule} -- stejně jako třída \Code{Grammar}, je třída \Code{Rule} pouze abstrakcí, která odděluje vnitřní implementaci od jejího použití. 
+		\end{itemize}
+	
+		Modul kromě výše zmíněných tříd obsahuje ještě třídy další. Některé ze tříd jsou pomocné a~jsou určeny pouze k~interním účelům modulu. Tyto třídy nejsou exportovány ven z~modulu a~pro uživatele knihovny se jeví jako nedostupné.
+		
+		\begin{itemize}
+			\item \Code{RuleConnectable} -- je rozhraní umožňující propojit entity pomocí pravidel. 
+			\item \Code{Terminal} -- je třída reprezentující terminál v~\gls{gloss:AST}, resp. u~operací s~terminály pracujících. Třída dědí ze třídy \Code{RuleConnectable} a~v~aktuální implementaci poskytuje jen metodu \Code{symbol}, která vrátí skutečný symbol do gramatiky vložený.
+			\item \Code{Nonterminal} -- třída \Code{Nonterminal} neposkytuje žádnou implementaci, pouze dědí ze třídy \Code{RuleConnectable}. Tato třída slouží jako bázová třída pro ostatní neterminály, které jsou identifikovány právě dědičností z~této třídy.
+			\item \Code{WeakList} -- je interní třída představující pole se slabými (\MathSymb{weak}) odkazy. Python používá pro uvolnění paměti garbage collector (\gls{gloss:GC}), který používá tzv. reference counting. Ten je náchylný na odkazovací smyčky, které se v~programu vyskytují (pravidlo má odkaz na symbol a~symbol má odkaz zpět na pravidlo). Použitým slabých odkazů se tento problém eliminuje. \Code{WeakList} je použit interně v~implementaci třídy \Code{InstantiableRule}.
+			\item \Code{HashContainer} -- tato třída slouží jako jednoduchá množina, založená na hash hodnotách. Na rozdíl od výchozí implementace množiny (která je taktéž založená na hash hodnotách) má \Code{HashContainer} změněné rozhraní. Použita je pro uchovávání terminálů, neterminálů a~pravidel ve třídě \Code{RawRule}.
+		\end{itemize}
+	
+		Nakonec má modul nadefinovanou hierarchii výjimek. Všechny výjimky dědí ze třídy \Code{GrammpyException}, která sama dědí ze třídy \mintinline{c}{Exception}. Kompletní hierarchie je zachycena na obrázku \ref{fig:grammpyExceptions}.
+		\begin{itemize}
+			\item \Code{GrammpyException} -- základní, společná třída.
+			\item \Code{CannotConvertException} -- konverze neproběhla v~pořádku, dědí také z~\Code{ValueError}.
+			\item \Code{NotASingleSymbolException} -- na místě, kde má být jeden symbol, je jich uvedeno více.
+			\item \Code{NotRuleException} -- parametr není pravidlo, mimo \Code{GrammpyException} dědí také z~\Code{TypeError}.
+			\item \Code{NotNonterminalException} -- parametrem není neterminál, dědí také z~\Code{TypeError}.
+			\item \Code{RuleException} -- pravidlo je nadefinováno syntakticky nesprávně nebo nevalidně, kromě \Code{GrammpyException} dědí také ze třídy \Code{ValueError}.
+			\item \Code{RuleSyntaxException} -- špatná syntaxe pravidla.
+			\item \Code{TerminalDoesNotExistsException} -- použitý terminál v~gramatice neexistuje.
+			\item \Code{NonterminalDoesNotExistsException} -- použitý neterminál v gramatice neexistuje.
+			\item \Code{UselessEpsilonException} --	\EpsS symbol je špatně použit.
+			\item \Code{CantCreateSingleRuleException} -- rozdělení na jednotlivé pravidla skončilo chybou.
+			\item \Code{RuleNotDefinedException} -- pravidlo není nadefinováno.
+			\item \Code{TreeDeletedException} -- odkazovaný element \gls{gloss:AST} byl již smazán.
+		\end{itemize}
+	
+		Výsledek implementace je znázorněn v~diagramu na obrázku \ref{fig:grammpyClasses}, resp. na obrázku \ref{fig:grammpyExceptions}, kde je znázorněna hierarchie výjimek. 
+		
+	\section{Transformace a~parsování}
+	
+		Algoritmy pro transformaci jsou pouze implementací pseudokódů, které byly ukázány v~kapitole o~operacích s~gramatikami. Z~tohoto důvodu bude kód jednotlivých algoritmů vynechán. Kompletní implementace je k~dispozici na přiloženém mediu nebo online \cite{GrammpyProject}.
+		
+		Každý z~algoritmů zpravidla definuje vlastní neterminály resp. pravidla, kterými nahradí modifikovaný neterminál resp. pravidlo. Díky jejich typu lze poté provést zpětnou transformaci \gls{gloss:AST}. Dále následuje popis algoritmů, které jsou v~knihovně implementovány, zároveň s~jejich typy.
+		
+		\begin{itemize}
+			\item \Code{remove_nongenerating_nonterminals} -- odstraní negenerující neterminály z~gramatiky. Algoritmus nedefinuje žádné vlastní třídy, protože se jedná pouze o~optimalizační techniku.
+			
+			\item \Code{remove_unreachable_symbols} -- odstraní nedostupné symboly. Opět se jedná pouze o~optimalizační techniku, a~tak algoritmus nedefinuje vlastní třídy.
+			
+			\item \Code{remove_rules_with_epsilon} -- odstraní \EpsS pravidel. Algoritmus definuje vlastní třídu pro pravidlo -- \Code{EpsilonRemovedRule}. V této třídě je uloženo, ve kterém pravidle byl symbol přepsán na \EpsS, jeho pozici a~dále sekvence pravidel, které k~\EpsS symbolu vedly.
+			
+			Algoritmus pro zpětnou transformaci na místě, kde je pravidlo typu \Code{EpsilonRemovedRule} použito, vytvoří původní pravidlo. Poté vytvoří sekvenci pravidel, která vedla k~\Eps~symbolu, a~vloží ji na pozici určenou indexem.
+			
+			\item \Code{remove_unit_rules} -- odstraní jednoduché pravidla z~gramatiky. Algoritmus definuje pravidlo \Code{ReducedUnitRule}, které nahradí pravidla, na jejichž pravé straně se vyskytuje symbol vedoucí k~jednoduchému pravidlu. Třída \Code{ReducedUnitRule} si podobně jako \Code{EpsilonRemovedRule} ukládá, ze kterého pravidla vznikla a~sekvenci jednoduchých pravidel, které k~transformaci vedly.
+			
+			Algoritmus pro zpětnou transformaci probíhá taktéž obdobně -- nejdříve je vytvořena sekvence jednoduchých pravidel, poté konečné pravidlo a~tato struktura je vložena na patřičné místo v~\gls{gloss:AST}.
+			
+			\item \Code{transform_to_chomsky_normal_form} -- transformuje gramatiku do \gls{gloss:CNF}. Tento algoritmus definuje několik tříd, některé z~nich pro interní potřeby. Neterminály definuje tři:
+			\begin{itemize}
+				\item \Code{ChomskyNonterminal} -- bázová třída pro zbylé dva neterminály,
+				\item \Code{ChomskyGroupNonterminal} -- představuje neterminál reprezentující více neterminálů,
+				\item \Code{ChomskyTermNonterminal} -- představuje neterminál přímo derivovatelný na terminál.
+			\end{itemize}
+		
+			K~těmto neterminálům algoritmus definuje i~patřičná pravidla.
+			\begin{itemize}
+				\item \Code{ChomskyRule} -- bázová třída pro zbylé pravidla.
+				\item \Code{ChomskySplitRule} -- pravidlo vzniklé rozdělením pravidla do dvou neterminálů. Druhým symbolem pravé strany pravidla je vždy pravidlo \Code{ChomskyGroupNonterminal}, který reprezentuje všechny symboly pravé strany s~výjimkou prvního.
+				\item \Code{ChomskyRestRule} -- reprezentuje zbylou část pravidla neterminálu \Code{ChomskyGroupNonterminal}. Jedná se pouze o~dočasný objekt, protože v~další iteraci je i~toto pravidlo rozděleno na dva neterminály -- vznikne z~něj tedy opět pravidlo typu \Code{ChomskySplitRule}.
+				\item \Code{ChomskyTerminalReplaceRule} -- slouží jako náhrada pravidla na jehož pravé straně jsou dva symboly, ale jeden z~nich je terminál. Tento symbol je nahrazen \Code{ChomskyTermNonterminal} a~dále je přidáno pravidlo typu \Code{ChomskyTermRule}.
+				\item \Code{ChomskyTermRule} -- je pravidlo, které přímo derivuje neterminál na terminál.
+			\end{itemize}
+		
+			Každý z~definovaných neterminálů resp. terminálů definují atributy, na jejichž základě lze transformovat \gls{gloss:AST}.
+		\end{itemize}
+	
+		Modul kromě toho definuje pomocné třídy \Code{Manipulations} a \Code{Traversing}, které zjednodušují práci s~\gls{gloss:AST}. Třída \Code{Manipulations} poskytuje rozhraní pro nahrazení pravidla v~\gls{gloss:AST} jiným pravidlem, resp. nahrazení terminálu či neterminálu jiným symbolem. Třída \Code{Traversing} dále definuje metody pro procházení \gls{gloss:AST}. V~základu implementuje procházení metodou pre-order a~post\=/or\-der, ale také abstraktnější verzi pro procházení na základě callbacku.
+		
+		Kompletní návrh modulu lze nalézt na obrázku \ref{fig:grammpyTransformsClasses}. Použitá pravidla jsou poté na obrázku \ref{fig:grammpyTransformsRules} a~neterminály na obrázku \ref{fig:grammpyTransformsNonterminals}.
+		
+		\vspace{1em}
+		
+		Modul \MathSymb{pyparsers} se skládá pouze z~jedné funkce -- \Code{cyk}. Tato funkce provede \gls{gloss:CYK} algoritmus a~navrátí \gls{gloss:AST}. Modul obsahuje další pomocné třídy, které jsou interně použity při algoritmu.
+		\begin{itemize}
+			\item \Code{Point} -- reprezentuje bod o~souřadnicích \MathSymb{x} a \MathSymb{y}. Interně se nejedná o~třídu, ale o~tzv. namedtuple \cite{namedtuple}.
+			\item \Code{Field} -- reprezentuje pyramidovou strukturu, nad kterou operuje \gls{gloss:CYK} algoritmus.
+			\item \Code{PlaceItem} -- zastřešuje strukturu uchovávající použité pravidlo a~jeho potomky.
+		\end{itemize}
+	
+		Algoritmus si nejprve vytvoří instanci typu \Code{Field}. Poté si vytvoří dva překladové slovníky -- jeden pro pravidla, která se přímo derivují na neterminály, a druhý, jehož klíčem jsou dva neterminály a~hodnotou je vždy pravidlo na tyto neterminály přímo derivovatelné. Na základě prvního slovníku jsou poté nalezeny neterminály, které se přímo derivují na vstupní terminály, a~tyto neterminály jsou vyplněny do posledního řádku tabulky. Algoritmus dále probíhá stejně, jak je to uvedeno v~jeho pseudokódu.
+		
+		Po dokončení algoritmus zkontroluje, zda je počáteční symbol v~prvním řádku pole (viz obrázek \ref{pic:cykSteps}) a~pokud ne, vyvolá výjimku. V~případě, kdy se počáteční symbol v~prvním řádku tabulky vyskytuje, algoritmus pokračuje s~tvorbou \gls{gloss:AST}. Díky struktuře \Code{PlaceItem}, ve které si algoritmus ukládá použitá pravidla, lze \gls{gloss:AST} vytvořit bez dalšího procházení vstupního slova nebo gramatiky. Zdrojové kódy jsou opět na přiloženém mediu a~online.
+	
+		Vzhledem k~tomu, že rozhraním modulu je pouze jedna funkce, není zde k~tomuto modulu zobrazen diagram.
+		
+	\section{Testování}	
+		Pro otestování knihovny byl zvolen framework \Code{unittest}. Tento framework je dostupný jako Python modul přímo ve výchozí instalaci, není tedy třeba instalovat knihovny třetích stran. Jedná se o~testovací framework určený především k~jednotkovým testům (unit testům). Vzhledem k~faktu, že implementujeme pouze knihovnu a~nikoliv celou aplikaci, je jednotkové (resp. integrační) testování dostatečným ověřením jejího správného fungování. Systémové či uživatelské testy vzhledem k~povaze problému ani nelze provádět. Knihovna je otestována více než 450 jednotkovými testy.
+		
+		Pokrytí kódu (anglicky code coverage) \cite{Ammann:2008:IST:1355340} je analytický přístup ověřující, že všechen kód, ze kterého se software skládá, byl alespoň jednou spuštěn.
+		Při vysokém pokrytí kódu máme jistotu, že téměř celá aplikace byla spuštěna a~v~rámci tohoto běhu funguje jak má. Vysoké pokrytí nám nicméně nezaručuje, že software funguje správně, protože mohou nastat situace, se kterými není v~kódu počítáno.
+		Nástroje určující pokrytí kódu detekují, že byl kód spuštěn, ale samotnou chybu neobjeví. Software, jenž obsahuje grafické rozhraní, je zpravidla pokryt hůře, protože testování grafického prostředí je náročné a~vyžaduje speciální nástroje. V~našem případě můžeme zvolit požadované pokrytí větší (viz požadavek \ref{req:coverage}), protože se jedná pouze o~knihovnu, kterou lze v~běžných případech otestovat téměř celou \cite{Ammann:2008:IST:1355340}. Během vývoje se stav pokrytí neustále mění v~závislosti na fázi vývoje a~vydání. Knihovna se nicméně řídí požadavkem \ref{req:coverage} a~její pokrytí neklesá pod 90 \%. Publikované verze knihovny mají zpravidla pokrytí kódu větší, tradičně 100 \%.
+		
+		Jako nástroj měřící pokrytí kódu byl zvolen framework (resp. modul) \hyperlink{https://coverage.readthedocs.io/en/coverage-4.5.1/}{Coverage.py} \cite{coveragePy}, který je napsán v~jazyce Python, a pro své fungování vyžaduje pouze instalaci tohoto modulu. Pokrytí kódu je automaticky generováno na základě jednotkových testů. Data jsou poté přenesena do nástroje \hyperlink{https://coveralls.io/}{Coveralls} \cite{coveralls}, který podle dodaných dat generuje přehledné reporty. Ty obsahují celkové pokrytí kódu, pokrytí jednotlivých tříd resp. souborů a~samozřejmě také změnu pokrytí mezi jednotlivými verzemi softwaru. Nástroj je opět pro otevřený software zdarma a~díky integraci s~nástroji GitHub a~TravisCI jsou reporty generovány pro každou verzi softwaru automaticky.
+		
+		
+		
